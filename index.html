@@ -2,41 +2,53 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Draw</title>
+    <title>Draw by @dshaw</title>
     <style>
       body {
         margin: 0px; overflow: hidden;
-        font-family:sans-serif; font-size:2em; text-align:center; font-weight:bold
+        font-family:sans-serif; font-size:1.8em; text-align:center;
+        color:black
       }
-      aside { display:block }
+      a { color:black; text-decoration:none; cursor:pointer }
+      a:hover { color:#0084B4 }
+      header { display:block }
       canvas  { position:absolute; top:0; left:0; border:4px solid #efefef; cursor: crosshair }
-      #info { position: absolute; top:0; width:100%; padding:0 .5em; background-color:#efefef }
-      #messages { list-style:none }
-      #messages li { padding:0.2em 0 }
-      #status { color:white }
-      #status.open { background-color:green }
-      #status.closed { background-color:blue }
-      #status.failed { background-color:red }
+      #info {
+        position: absolute; top:0; width:100%; padding:0.1em 0.5em; background-color:#efefef;
+        vertical-align:baseline;
+        -moz-box-shadow:inset 0 0 .1em black;
+        -webkit-box-shadow:inset 0 0 .1em black;
+        box-shadow:inset 0 0 .1em black;
+      }
+      #info div { display:inline-block; margin:0 .25em }
+      #project { font-weight:bold }
+      #colorpicker { padding:0.1em; font-size:0.7em }
     </style>
   </head>
   <body>
     <canvas id=canvas></canvas>
-    <aside id=info>color: <span id=usercolor>[ Draw something ]</span></aside>
+    <header id=info>
+      <div>
+        <span id=project>Draw</span>
+        <span id=attrib>by: <a href="http://twitter.com/dshaw/" target=twitter>@dshaw</a></span>
+      </div>
+      <div id=options>
+        <input id=colorpicker type=color>
+      </div>
+      <div><a id=reset>reset</a></div>
+      <div><a id=save>save</a></div>
+    </header>
 
     <script>
-      var usercolor = document.getElementById("usercolor");
+      var usercolor = document.getElementById("usercolor"),
+          colorpicker = document.getElementById("colorpicker"),
+          reset = document.getElementById("reset"),
+          save = document.getElementById("save"),
+          canvas = document.getElementById("canvas"),
+          context = canvas.getContext("2d"),
+          drawing = false;
 
-      var canvas = document.getElementById("canvas");
-			canvas.width = window.innerWidth;
-			canvas.height = window.innerHeight;
-
-			var context = canvas.getContext("2d");
-			context.lineWidth = 0.25;
-			context.strokeStyle = "rgba(0, 0, 0, 0.1)";
-			context.fillStyle = "rgb(255, 255, 255)";
-			context.fillRect(0, 0, canvas.width, canvas.height);
-
-      var drawing = false;
+			resetCanvas();
 
       canvas.onmousedown = function(event) {
         var x = event.clientX - this.offsetLeft + document.body.scrollLeft,
@@ -45,7 +57,7 @@
             r, g, b,
             r = g = b = randomColor;
 
-        context.strokeStyle = usercolor.innerHTML = "rgba("+r()+", "+b()+", "+g()+", 0.1)";
+        context.strokeStyle = colorpicker.value = "rgba("+r()+", "+b()+", "+g()+", 0.1)";
         drawing = true;
         context.beginPath();
         context.moveTo(x, y);
@@ -65,6 +77,24 @@
           context.stroke();
         }
       };
+
+      reset.onclick = function(event) {
+        event.preventDefault();
+        resetCanvas();
+      };
+
+      save.onclick = function(event) {
+        event.preventDefault();
+        window.open( canvas.toDataURL("image/png"), "draw" );
+      };
+
+      function resetCanvas() {
+        canvas.width = window.innerWidth;
+			  canvas.height = window.innerHeight;
+        context.strokeStyle = colorpicker.value =  "rgba(0, 0, 0, 0.1)";
+        context.fillStyle = "rgb(255, 255, 255)";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+      }
     </script>
   </body>
 </html>
