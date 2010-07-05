@@ -18,6 +18,7 @@
   <head>
     <meta charset=utf-8>
     <title>Draw by @dshaw</title>
+    <meta name=viewport content=Ówidth=device-widthÓ>
     <style>
       body {
         margin: 0px; overflow: hidden;
@@ -38,6 +39,7 @@
       #info div { display:inline-block; margin:0 .25em }
       #project { font-weight:bold }
       #colorpicker { padding:0.1em; font-size:0.7em }
+      #colorstate { margin:0; padding:0 .4em; vertical-align:middle }
     </style>
   </head>
   <body>
@@ -48,7 +50,9 @@
         <span id=attrib>by: <a href="http://twitter.com/dshaw/" target=twitter>@dshaw</a></span>
       </div>
       <div id=options>
-        <input id=colorpicker type=color>
+        <div id=colorstate>
+          <input id=colorpicker type=color>
+        </div>
       </div>
       <div><a id=reset>reset</a></div>
       <div><a id=playback>playback</a></div>
@@ -57,26 +61,37 @@
 
     <script>
       var usercolor = document.getElementById("usercolor"),
+          colorstate = document.getElementById("colorstate"),
           colorpicker = document.getElementById("colorpicker"),
           reset = document.getElementById("reset"),
           playback = document.getElementById("playback"),
-          export = document.getElementById("export"),
+          exp = document.getElementById("export"), // Safari doesn't like window.export.
           canvas = document.getElementById("canvas"),
           context = canvas.getContext("2d"),
           defaultColor = "rgba(0, 0, 0, 0.1)",
           drawing = false,
+          supportsPlaceholder = ("placeholder" in document.createElement("input")),
           supportsTouch = ("createTouch" in document),
           supportsLocalStorage = (("localStorage" in window) && window[localStorage] !== null),
           strokes = [];
 
+      var displayColor = function(color) {
+        if (supportsPlaceholder) {
+          colorpicker.placeholder = color;
+        }
+        colorstate.style.backgroundColor = color;
+        colorstate.title = color;
+      };
+
       var resetCanvas = function() {
         canvas.width = window.innerWidth;
 			  canvas.height = window.innerHeight;
-        context.strokeStyle = colorpicker.value = defaultColor;
+        context.strokeStyle = defaultColor;
+        displayColor(context.strokeStyle);
         context.fillStyle = "rgb(255, 255, 255)";
         context.fillRect(0, 0, canvas.width, canvas.height);
         strokes = [];
-      }
+      };
 
       var coordinates = function(event) {
         var x, y;
@@ -97,11 +112,12 @@
         var r, g, b,
             randomColor = function() { return (~~(Math.random() * 255)) },
             r = g = b = randomColor,
-            strokeStyle = colorpicker.value = "rgba("+r()+", "+b()+", "+g()+", 0.1)",
+            strokeStyle = "rgba("+r()+", "+b()+", "+g()+", 0.1)",
             coords = coordinates(event);
 
         drawing = true;
         lineStart(coords, strokeStyle);
+        displayColor(strokeStyle);
 //        context.strokeStyle;
 //        context.beginPath();
 //        context.moveTo(coords.x, coords.y);
@@ -178,18 +194,17 @@
         for (var cur=0; cur < count; cur++) {
           setTimeout(load(cur), speed * cur);
         }
-      }
-
-
-      canvas[supportsTouch ? "ontouchstart" : "onmousedown"] = drawStart;
-      canvas[supportsTouch ? "ontouchmove" : "onmousemove"] = drawMove;
-      canvas[supportsTouch ? "ontouchend" : "onmouseup"] = drawEnd;
+      };
 
 
       // init
 			resetCanvas();
       loadPlayback();
 
+
+      canvas[supportsTouch ? "ontouchstart" : "onmousedown"] = drawStart;
+      canvas[supportsTouch ? "ontouchmove" : "onmousemove"] = drawMove;
+      canvas[supportsTouch ? "ontouchend" : "onmouseup"] = drawEnd;
 
       reset.onclick = function(event) {
         event.preventDefault();
@@ -206,7 +221,7 @@
         loadPlayback(3000);
       };
 
-      export.onclick = function(event) {
+      exp.onclick = function(event) {
         event.preventDefault();
         window.open( canvas.toDataURL("image/png"), "draw" );
       };
