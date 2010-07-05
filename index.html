@@ -51,32 +51,36 @@
         <input id=colorpicker type=color>
       </div>
       <div><a id=reset>reset</a></div>
-      <div><a id=save>save</a></div>
+      <div><a id=playback>playback</a></div>
+      <div><a id=export>export</a></div>
     </header>
 
     <script>
       var usercolor = document.getElementById("usercolor"),
           colorpicker = document.getElementById("colorpicker"),
           reset = document.getElementById("reset"),
-          save = document.getElementById("save"),
+          playback = document.getElementById("playback"),
+          export = document.getElementById("export"),
           canvas = document.getElementById("canvas"),
           context = canvas.getContext("2d"),
+          defaultColor = "rgba(0, 0, 0, 0.1)",
           drawing = false,
-          supportsTouch = ("createTouch" in document);
+          supportsTouch = ("createTouch" in document),
+          supportsLocalStorage = (("localStorage" in window) && window[localStorage] !== null),
+          strokes = [];
 
       var resetCanvas = function() {
         canvas.width = window.innerWidth;
 			  canvas.height = window.innerHeight;
-        context.strokeStyle = colorpicker.value =  "rgba(0, 0, 0, 0.1)";
+        context.strokeStyle = colorpicker.value = defaultColor;
         context.fillStyle = "rgb(255, 255, 255)";
         context.fillRect(0, 0, canvas.width, canvas.height);
+        strokes = [];
       }
-
-			resetCanvas();
 
       var coordinates = function(event) {
         var x, y;
-        if(event.touches){
+        if (event.touches) {
           x = event.touches[0].pageX;
           y = event.touches[0].pageY;
         } else {
@@ -90,14 +94,25 @@
       };
 
       var drawStart = function(event) {
-        var coords = coordinates(event, this),
-            r, g, b,
-            randomColor = function(){ return (~~(Math.random() * 255)) },
-            r = g = b = randomColor;
-        context.strokeStyle = colorpicker.value = "rgba("+r()+", "+b()+", "+g()+", 0.1)";
+        var r, g, b,
+            randomColor = function() { return (~~(Math.random() * 255)) },
+            r = g = b = randomColor,
+            strokeStyle = colorpicker.value = "rgba("+r()+", "+b()+", "+g()+", 0.1)",
+            coords = coordinates(event);
+
         drawing = true;
-        context.beginPath();
-        context.moveTo(coords.x, coords.y);
+        lineStart(coords, strokeStyle);
+//        context.strokeStyle;
+//        context.beginPath();
+//        context.moveTo(coords.x, coords.y);
+
+        if (supportsLocalStorage) {
+          var stroke = {
+            style : strokeStyle,
+            line : [coords]
+          }
+          strokes.push(stroke);
+        }
         return false;
       };
 
@@ -105,27 +120,93 @@
         var x, y,
             coords = coordinates(event, this);
         if (drawing) {
-          context.lineTo(coords.x, coords.y);
-          context.stroke();
+          lineDraw(coords);
+//          context.lineTo(coords.x, coords.y);
+//          context.stroke();
+
+          if (supportsLocalStorage) {
+            var strokeid = strokes.length - 1;
+            strokes[strokeid].line.push(coords);
+          }
         }
       };
 
       var drawEnd = function() {
+        if (supportsLocalStorage) {
+          var count = strokes.length,
+              id = count - 1;
+          localStorage["stroke."+id] = JSON.stringify(strokes);
+          localStorage.count = strokes.length;
+        }
         drawing = false;
       };
 
+      var lineStart = function(coordinates, strokeStyle) {
+        context.strokeStyle = strokeStyle;
+        context.beginPath();
+        context.moveTo(coordinates.x, coordinates.y);
+      };
 
-      canvas[supportsTouch ? 'ontouchstart' : 'onmousedown'] = drawStart;
-      canvas[supportsTouch ? 'ontouchmove' : 'onmousemove'] = drawMove;
-      canvas[supportsTouch ? 'ontouchend' : 'onmouseup'] = drawEnd;
+      var lineDraw = function(coordinates) {
+        context.lineTo(coordinates.x, coordinates.y);
+        context.stroke();
+      };
+
+      var loadPlayback = function(speed) {
+        if (!supportsLocalStorage && ("count" in localStorage)) return;
+
+        var speed = speed || 0,
+            count = localStorage.count,
+            load = function(n) {
+              var data = localStorage.getItem("stroke."+n);
+              if (!data) return;
+              var strokeList = JSON.parse(data);
+              strokeList.forEach(function(stroke) {
+                var style = stroke.style || defaultColor,
+                    line = stroke.line || [],
+                    linelen = line.length;
+                strokes.push(stroke);
+                if (linelen > 0) {
+                  lineStart(line[0], style);
+                  for (var i=1; i < linelen; i++) {
+                    lineDraw(line[i]);
+                  }
+                }
+              });
+            };
+
+        for (var cur=0; cur < count; cur++) {
+          setTimeout(load(cur), speed * cur);
+        }
+      }
+
+
+      canvas[supportsTouch ? "ontouchstart" : "onmousedown"] = drawStart;
+      canvas[supportsTouch ? "ontouchmove" : "onmousemove"] = drawMove;
+      canvas[supportsTouch ? "ontouchend" : "onmouseup"] = drawEnd;
+
+
+      // init
+			resetCanvas();
+      loadPlayback();
 
 
       reset.onclick = function(event) {
         event.preventDefault();
         resetCanvas();
+        if (supportsLocalStorage) {
+          localStorage.clear();
+        }
       };
 
-      save.onclick = function(event) {
+      playback.onclick = function(event) {
+        event.preventDefault();
+        resetCanvas();
+        alert("Starting playback...");
+        loadPlayback(3000);
+      };
+
+      export.onclick = function(event) {
         event.preventDefault();
         window.open( canvas.toDataURL("image/png"), "draw" );
       };
