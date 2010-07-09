@@ -18,7 +18,7 @@
   <head>
     <meta charset=utf-8>
     <title>Draw by @dshaw</title>
-    <meta name=viewport content=Ówidth=device-widthÓ>
+    <meta name=viewport content=Óinitial-scale=1.0, width=device-widthÓ>
     <style>
       body {
         margin: 0px; overflow: hidden;
@@ -28,7 +28,7 @@
       a { color:black; text-decoration:none; cursor:pointer }
       a:hover { color:#0084B4 }
       header { display:block }
-      canvas  { position:absolute; top:0; left:0; border:4px solid #efefef; cursor: crosshair }
+      #canvas  { position:absolute; top:0; left:0; border:4px solid #efefef; cursor: crosshair }
       #info {
         position: absolute; top:0; width:100%; padding:0.1em 0.5em; background-color:#efefef;
         vertical-align:baseline;
@@ -40,6 +40,15 @@
       #project { font-weight:bold }
       #colorpicker { padding:0.1em; font-size:0.7em }
       #colorstate { margin:0; padding:0 .4em; vertical-align:middle }
+      #toolbar {
+        position:absolute; bottom:0;
+        width:100%; margin:0; padding:0; vertical-align:middle;
+        background-color:rgba(0, 0, 0, 0.8); color:white;
+        -moz-box-shadow:black -2px 0 10px;
+        -webkit-box-shadow:black -2px 0 10px;
+        box-shadow:black -2px 0 10px;
+      }
+      #palettecanvas { height:72px; cursor:crosshair }
     </style>
   </head>
   <body>
@@ -51,46 +60,98 @@
       </div>
       <div id=options>
         <div id=colorstate>
-          <input id=colorpicker type=color>
+          <input id=colorpicker type=hidden>
+          <input id=strokesize type=range value=1 min=0.1 max=100>
         </div>
       </div>
       <div><a id=reset>reset</a></div>
       <div><a id=playback>playback</a></div>
       <div><a id=export>export</a></div>
     </header>
+    <div id=toolbar>
+      <canvas id=palettecanvas></canvas>
+    </div>
 
     <script>
-      var usercolor = document.getElementById("usercolor"),
+      var info = document.getElementById("info"),
+          usercolor = document.getElementById("usercolor"),
           colorstate = document.getElementById("colorstate"),
           colorpicker = document.getElementById("colorpicker"),
+          strokesize = document.getElementById("strokesize"),
           reset = document.getElementById("reset"),
           playback = document.getElementById("playback"),
-          exp = document.getElementById("export"), // Safari doesn't like window.export.
+          exp = document.getElementById("export"), // "export" is a reserved word in ECMAScript 5.
+          //palette = document.getElementById("palette"),
+          palettecanvas = document.getElementById("palettecanvas"), // used by palette to extract color data
+          palettecontext = palettecanvas.getContext("2d"),
           canvas = document.getElementById("canvas"),
           context = canvas.getContext("2d"),
           defaultColor = "rgba(0, 0, 0, 0.1)",
           drawing = false,
+          random = true,
           supportsPlaceholder = ("placeholder" in document.createElement("input")),
           supportsTouch = ("createTouch" in document),
           supportsLocalStorage = (("localStorage" in window) && window[localStorage] !== null),
           strokes = [];
 
       var displayColor = function(color) {
-        if (supportsPlaceholder) {
-          colorpicker.placeholder = color;
-        }
         colorstate.style.backgroundColor = color;
-        colorstate.title = color;
+      };
+
+      var clearColor = function() {
+        colorpicker.value = "";
+        random = true;
+        displayColor(defaultColor);
+      };
+
+      var getColor = function() {
+        var color,
+            r, g, b,
+            randomColor = function() { return (~~(Math.random() * 255)) },
+            r = g = b = randomColor;
+        return (random) ? "rgba("+r()+","+b()+","+g()+",0.1)" : colorpicker.value;
+      };
+
+      var setColor = function(color) {
+        colorpicker.value = color;
+        random = false;
+        displayColor(color);
       };
 
       var resetCanvas = function() {
+        strokes = [];
         canvas.width = window.innerWidth;
 			  canvas.height = window.innerHeight;
+        context.lineWidth = strokesize.title = strokesize.value || 1;
         context.strokeStyle = defaultColor;
+        random = true;
+        clearColor();
         displayColor(context.strokeStyle);
-        context.fillStyle = "rgb(255, 255, 255)";
+        palettecanvas.width = 900;
+			  palettecanvas.height = 72;
+        context.fillStyle = palettecontext.fillStyle = "white";
         context.fillRect(0, 0, canvas.width, canvas.height);
-        strokes = [];
+
+        // draw toolbar
+        var fillColor = "rgb(255,255,255)";
+        for (var i=0;i<6;i++) {
+          for (var j=0;j<6;j++) {
+            for (var k=0;k<6;k++) {
+              palettecontext.fillStyle = 'rgb('+Math.floor(255-142.5*i)+','+Math.floor(255-42.5*j)+','+Math.floor(255-42.5*k)+')';
+              palettecontext.fillRect((k*150)+(j*25),i*25,25,25);
+            }
+          }
+        }
+
+        var greys = "white #AAA #777 black #333 #555".split(" "),
+            size = 25,
+            x = "0 0 0 875 875 875".split(" "),
+            y = "0 25 50 0 25 50".split(" ");
+
+        for (var i=0, len = greys.length; i<len; i++) {
+          palettecontext.fillStyle = greys[i];
+          palettecontext.fillRect(x[i], y[i], size, size);
+        }
       };
 
       var coordinates = function(event) {
@@ -109,22 +170,16 @@
       };
 
       var drawStart = function(event) {
-        var r, g, b,
-            randomColor = function() { return (~~(Math.random() * 255)) },
-            r = g = b = randomColor,
-            strokeStyle = "rgba("+r()+", "+b()+", "+g()+", 0.1)",
+        var color = getColor(),
             coords = coordinates(event);
 
         drawing = true;
-        lineStart(coords, strokeStyle);
-        displayColor(strokeStyle);
-//        context.strokeStyle;
-//        context.beginPath();
-//        context.moveTo(coords.x, coords.y);
+        displayColor(color);
+        lineStart(coords, color);
 
         if (supportsLocalStorage) {
           var stroke = {
-            style : strokeStyle,
+            style : color,
             line : [coords]
           }
           strokes.push(stroke);
@@ -137,12 +192,10 @@
             coords = coordinates(event, this);
         if (drawing) {
           lineDraw(coords);
-//          context.lineTo(coords.x, coords.y);
-//          context.stroke();
 
           if (supportsLocalStorage) {
             var strokeid = strokes.length - 1;
-            strokes[strokeid].line.push(coords);
+            if (strokes[strokeid].line) strokes[strokeid].line.push(coords);
           }
         }
       };
@@ -158,8 +211,9 @@
       };
 
       var lineStart = function(coordinates, strokeStyle) {
-        context.strokeStyle = strokeStyle;
         context.beginPath();
+        context.lineWidth = strokesize.value || 1;
+        context.strokeStyle = strokeStyle;
         context.moveTo(coordinates.x, coordinates.y);
       };
 
@@ -224,6 +278,22 @@
       exp.onclick = function(event) {
         event.preventDefault();
         window.open( canvas.toDataURL("image/png"), "draw" );
+      };
+
+      palettecanvas[supportsTouch ? "ontouchstart" : "onmousedown"] = function(event) {
+        event.preventDefault();
+        var data = palettecontext.getImageData(event.offsetX, event.offsetY, 1, 1).data,
+            color = "rgba("+data[0]+","+data[1]+","+data[2]+",0.1)";
+        setColor(color);
+      };
+
+      palettecanvas.ondblclick = function(event) {
+        event.preventDefault();
+        clearColor();
+      };
+
+      strokesize.onchange = function(event) {
+        strokesize.title = strokesize.value;
       };
     </script>
   </body>
