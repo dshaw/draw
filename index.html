@@ -335,31 +335,35 @@
       };
 
       var loadPlayback = function(speed) {
-        if (!supportsLocalStorage && ("count" in localStorage)) return;
+        if (!supportsLocalStorage && !("count" in localStorage)) return;
 
         var speed = speed || 0,
-            count = localStorage.count,
-            load = function(n) {
-              var data = localStorage.getItem("stroke."+n);
-              if (!data) return;
-              var strokeList = JSON.parse(data);
-              strokeList.forEach(function(stroke) {
-                var style = stroke.style || defaultColor,
-                    line = stroke.line || [],
-                    linelen = line.length;
-                strokes.push(stroke);
-                if (linelen > 0) {
-                  lineStart(line[0], style);
-                  for (var i=1; i < linelen; i++) {
-                    lineDraw(line[i]);
-                  }
-                }
-              });
-            };
+            cur = 0;
+            count = localStorage.count;
 
-        for (var cur=0; cur < count; cur++) {
-          setTimeout(load(cur), speed * cur);
-        }
+        var load = function(n) {
+          var n = n || 0;
+          if (!cur === count) return;
+          var data = localStorage.getItem("stroke."+n);
+          if (!data) return;
+          var strokeList = JSON.parse(data);
+          strokeList.forEach(function(stroke) {
+            var style = stroke.style || defaultColor,
+                line = stroke.line || [],
+                linelen = line.length;
+            strokes.push(stroke);
+            if (linelen > 0) {
+              lineStart(line[0], style);
+              for (var i=1; i < linelen; i++) {
+                lineDraw(line[i]);
+              }
+            }
+          });
+          cur++;
+          load(cur);
+        };
+
+        load();
       };
 
 
